@@ -1,0 +1,231 @@
+
+
+<html>
+<head>
+<title>Kiddie Color Quiz</title>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+
+<script type="text/javascript" src="https://static.codehs.com/gulp/8abfb909a62d534a49d5cc532ef837ccacbd4580/chs-js-lib/chs.js"></script>
+
+
+<style>
+canvas {
+    border: 1px solid black;
+    display: inline-block;
+    vertical-align: middle;
+}
+pre {
+    border: 1px solid black;
+    display: inline-block;
+    width: 400px;
+    height: 500px;
+    background-color: #F5F5F5;
+}
+h1 {
+    font-family:Arial, Helvetica, sans-serif;
+}
+</style>
+
+</head>
+
+<body><div style="text-align:center;"><div style="width:100%;height:100%;margin:auto">
+    <h1>Kiddie Color Quiz</h1>
+<canvas
+width="400"
+height="480"
+class="codehs-editor-canvas"></canvas>
+</div>
+</div>
+<script>
+window.onload = function() {
+
+/********* BEGIN PROGRAM CODE HERE ************/
+
+/**
+ * Title: Kiddie Color Quiz
+ * Description: This game tests preschooler's ability to read and identify colors.
+ * Author: Brian Piltin (www.brianpiltin.com)
+ * Version: 2018042201
+ * 
+ * MIT License:
+ * Copyright 2018 Brian Piltin
+ * Permission is hereby granted, free of charge, to any person obtaining a copy 
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
+ * copies of the Software, and to permit persons to whom the Software is 
+ * furnished to do so, subject to the following conditions:
+ *  The above copyright notice and this permission notice shall be included in 
+ *  all copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+ 
+// Location where prompt sound files are stored
+var SOUND_BASE_URL = "http://res.cloudinary.com/united-high-school/raw/upload/v1524062431/kiddie_color_match/";
+// Colors to pick from should be included in this array
+var COLORS = [Color.RED, Color.BLUE, Color.GREEN, Color.YELLOW, Color.BLACK, Color.PURPLE, Color.ORANGE, Color.WHITE];
+// Names need to match array above and there should also be a matching .mp3 file
+var COLOR_NAMES = ["red", "blue", "green", "yellow", "black", "purple", "orange", "white"];
+var NUM_ROWS = 2;   // Number of rows of color swatches
+
+var colorID = -1;       // Used to keep track of the current color, -1 means game hasn't started
+var total = 0;          // Total number of questions asked
+var correct = 0;        // Total number correct
+var queryTxt = null;    // The text object for the queries and prompts
+var newColor = true;    // If true pick a new color if false stay on same color
+var prePrompt = new Audio(SOUND_BASE_URL + "now_click_on.mp3");     // The "Now click on.." audio prompt
+var audioOn = true;     // Control toggling of audio on/off
+
+/**
+ * Program officially starts here.
+ */
+function start() {
+    
+    mouseClickMethod(handleClick);
+    keyUpMethod(handleKeyUp);
+    
+    var quitTxt = new Text("Press Q to quit. S to turn sound on/off.", "12pt Arial");
+    quitTxt.setPosition(getWidth() / 2 - quitTxt.getWidth() / 2, quitTxt.getHeight());
+    add(quitTxt);
+    
+    createSwatches();
+    setQueryTxt("Click to begin!");
+}
+
+/**
+ * Creates a grid of colored squares that the player is supposed
+ * to click on.
+ * TODO: Randomize colors each turn.
+ */
+function createSwatches() {
+    
+    var numCols = COLORS.length / NUM_ROWS; // Calculate the number of columns per row
+    var swatchWidth = getWidth() / numCols; // Calculate the width of each square
+    var swatchHeight = getHeight() / 2 / NUM_ROWS;  // Calculate the height of each square
+    
+    for (var row = 0; row < NUM_ROWS; row++) {
+        for (var col = 0; col < numCols; col++) {
+            var swatch = new Rectangle(swatchWidth, swatchHeight);
+            swatch.setPosition(swatchWidth * col, getHeight() / 2 + swatchHeight * row);
+            // row * numCols + col is a handy formula to convert
+            // 2 dimensional grid indexes into a single dimension array index
+            swatch.setColor(COLORS[row * numCols + col]);
+            add(swatch);
+        }
+    }
+}
+
+/**
+ * Sets the queryTxt object to supplied string.
+ * @param txt string that is the text to use
+ */
+function setQueryTxt(txt) {
+    // First create the queryTxt object if it is null
+    if (queryTxt == null) {
+        queryTxt = new Text(txt, "30pt Arial");
+        var x = getWidth() / 2 - queryTxt.getWidth() / 2;
+        var y = getHeight() / 3 - queryTxt.getHeight() / 2;
+        queryTxt.setPosition(x, y);
+        add(queryTxt);
+    }
+    // Update the text and then reposition
+    queryTxt.setText(txt);
+    var x = getWidth() / 2 - queryTxt.getWidth() / 2;
+    var y = getHeight() / 3 - queryTxt.getHeight() / 2;
+    queryTxt.setPosition(x, y);
+}
+
+/**
+ * Shows the next color to be chosen, this function represents
+ * the "heart of the game".
+ */
+function showNextColor() {
+    // Only choose a new color based on this flag
+    if (newColor == true) {
+        colorID = Randomizer.nextInt(0, COLORS.length - 1);
+    }
+    var name = COLOR_NAMES[colorID];    // Get the name of the chosen color based on the index
+    setQueryTxt("Click on " + name + "!");    // Update the queryTxt object
+    if (audioOn) {  
+        prePrompt.play();   // Plays the "now click on.. " audio
+        setTimeout(playPrompt, 900);    // Plays the color audio after a .9 second pause
+    }
+    total++;    // Keep track of the number of questions asked
+}
+
+/**
+ * Play the audio for the selected color based on the value of
+ * the current colorID.
+ */
+function playPrompt() {
+    var name = COLOR_NAMES[colorID];
+    var prompt = new Audio(SOUND_BASE_URL + name + ".mp3"); // Assume files are of type .mp3
+    prompt.play();
+}
+
+/**
+ * Handle all mouse clicks here.
+ * @param e the event object
+ */
+function handleClick(e) {
+    // Start game if colorID equals -1 (meaning game hasn't started yet)
+    if (colorID == -1) showNextColor();
+    
+    // Ignore click if player clicked on top half of screen
+    if (e.getY() < getWidth() / 2) return;
+    
+    // Get the square they clicked on 
+    var elem = getElementAt(e.getX(), e.getY());
+    // Check to see if the color of the square matches the current color
+    if (elem.getColor() == COLORS[colorID]) {
+        setQueryTxt("Correct. Great job!");
+        correct++
+        newColor = true;
+    } else {
+        setQueryTxt("Incorrect. Try again!")
+        newColor = false;
+    }
+    // Show the next color after a 2 second pause
+    setTimeout(showNextColor, 2000); 
+}
+
+/**
+ * Handle all key up events. 
+ * Key up events are sometimes better to use than key down events
+ * because they don't repeat like key down.
+ * @param e the event object
+ */
+function handleKeyUp(e) {
+    // Check if player wants to quit, if so display final score
+    if (e.keyCode == Keyboard.letter('q') || e.keyCode == Keyboard.letter('Q')) {
+        setQueryTxt("Your final score is...");
+        // The only way to call a function on a timer when you want to 
+        // also pass it an argument, uses an "anonymous" function
+        setTimeout(function() {
+            setQueryTxt("Correct: " + correct + " Wrong: " + ((total - 1) - correct));
+        }, 2000);
+    }
+    // Check if player wants to toggle sound
+    if (e.keyCode == Keyboard.letter('s') || e.keyCode == Keyboard.letter('S')) {
+        audioOn = !audioOn;
+    }
+}
+
+/*****  END PROGRAM CODE HERE *****/
+
+    if (typeof start === 'function') {
+        start();
+    }
+};
+
+</script>
+
+<div style='text-align: right;position: fixed;z-index:9999999;bottom: 0; width: 100%;cursor: pointer;line-height: 0;display:block !important;'><a title="000webhost logo" rel="nofollow" target="_blank" href="https://www.000webhost.com/free-website-sign-up?utm_source=000webhostapp&amp;utm_campaign=000_logo&amp;utm_campaign=ss-footer_logo&amp;utm_medium=000_logo&amp;utm_content=website"><img src="https://cdn.rawgit.com/000webhost/logo/e9bd13f7/footer-powered-by-000webhost-white2.png" alt="000webhost logo"></a></div></body>
+</html>
